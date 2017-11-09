@@ -1,4 +1,12 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# (c) 2016-2017, Ross Basarevych <basarevych@gmail.com>
+#
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+__metaclass__ = type
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.1',
@@ -9,6 +17,7 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = '''
 ---
 module: freebsdport
+version_added: "2.5"
 short_description: Manage FreeBSD ports
 description:
   - Configures, installs, updates and deinstalls FreeBSD ports in canonical
@@ -170,17 +179,17 @@ deinstalled_ports:
     description: List of deinstalled ports during execution
     returned: always
     type: list of strings
-    sample: [ 'sysutils/ansible ]
+    sample: [ 'sysutils/ansible' ]
 installed_ports:
     description: List of (re)installed ports during execution
     returned: always
     type: list of strings
-    sample: [ 'sysutils/ansible ]
+    sample: [ 'sysutils/ansible' ]
 set_options:
     description: List of all enabled option names for the port
     returned: when port name and state are provided
     type: list of strings
-    sample: [ 'DOCS, 'EXAMPLES' ]
+    sample: [ 'DOCS', 'EXAMPLES' ]
 unset_options:
     description: List of all disabled option names for the port
     returned: when port name and state are provided
@@ -190,14 +199,7 @@ traceback:
     description: Stack trace of exception
     returned: failure
     type: list of strings
-    sample: [
-        "Traceback (most recent call last):\n", 
-        "  File \"/tmp/ansible_uJmg4U/ansible_module_freebsdport.py\", line 976, in main\n    port.upgrade(name, False)\n", 
-        "  File \"/tmp/ansible_uJmg4U/ansible_module_freebsdport.py\", line 455, in upgrade\n    self.module.params.set('options', None)\n", 
-        "AttributeError: 'dict' object has no attribute 'set'\n"
-    ]
 '''
-
 
 import sys
 import re
@@ -292,7 +294,7 @@ class FreeBSDPort:
                     raise Exception('Invalid option state: %s' % value)
 
         enable_str = self.module.params['enable']
-        if not enable_str is None:
+        if enable_str is not None:
             for option in enable_str.split(' '):
                 if len(option) == 0:
                     continue
@@ -301,7 +303,7 @@ class FreeBSDPort:
                     new_unset.remove(option)
 
         disable_str = self.module.params['disable']
-        if not disable_str is None:
+        if disable_str is not None:
             for option in disable_str.split(' '):
                 if len(option) == 0:
                     continue
@@ -310,7 +312,7 @@ class FreeBSDPort:
                     new_set.remove(option)
 
         reset_str = self.module.params['reset']
-        if not reset_str is None:
+        if reset_str is not None:
             for option in reset_str.split(' '):
                 if len(option) == 0:
                     continue
@@ -341,13 +343,13 @@ class FreeBSDPort:
             with open(self.conf_file, 'r') as fd:
                 for line in fd:
                     match = re.match('^\s*' + options_name + '_CHANGED\s*[?+-]?=.*$', line)
-                    if not match is None:
+                    if match is not None:
                         continue
                     match = re.match('^\s*' + options_name + '_SET\s*[?+-]?=.*$', line)
-                    if not match is None:
+                    if match is not None:
                         continue
                     match = re.match('^\s*' + options_name + '_UNSET\s*[?+-]?=.*$', line)
-                    if not match is None:
+                    if match is not None:
                         continue
                     output = output + line.rstrip() + '\n'
         except:
@@ -375,7 +377,7 @@ class FreeBSDPort:
         backup = None
 
         if not reinstall and port_installed and not options_changed:
-            if not automatic is None and self._get_automatic(name) != automatic:
+            if automatic is not None and self._get_automatic(name) != automatic:
                 self._set_automatic(name, automatic)
             return False
 
@@ -421,7 +423,7 @@ class FreeBSDPort:
                 cmd.append('DISABLE_VULNERABILITIES=yes')
             self._run_make(name, cmd, 'Could not install the port: %s' % name)
         except Exception as e:
-            if not backup is None:
+            if backup is not None:
                 if not self._port_installed(name):
                     self._restore_backup(name, backup, automatic)
                 self._remove_backup(name, backup)
@@ -432,10 +434,10 @@ class FreeBSDPort:
         if self._get_automatic(name) != automatic:
             self._set_automatic(name, automatic)
 
-        if not name in self.result['installed_ports']:
+        if name not in self.result['installed_ports']:
             self.result['installed_ports'].append(name)
 
-        if not backup is None:
+        if backup is not None:
             self._remove_backup(name, backup)
 
         if self._get_options_changed(name):
@@ -446,7 +448,7 @@ class FreeBSDPort:
                 with open(self.conf_file, 'r') as fd:
                     for line in fd:
                         match = re.match('^\s*' + options_name + '_CHANGED\s*[?+-]?=.*$', line)
-                        if not match is None:
+                        if match is not None:
                             continue
                         output = output + line.rstrip() + '\n'
             except:
@@ -476,7 +478,7 @@ class FreeBSDPort:
             self.module.params['disable'] = None
             self.module.params['reset'] = None
         else:
-            requested = [ name ]
+            requested = [name]
 
         for candidate in requested:
             node = Node(all_nodes, candidate)
@@ -486,7 +488,7 @@ class FreeBSDPort:
         for node in candidates:
             self._build_tree(node)
 
-        if not name is None and self.module.params['include_deps']:
+        if name is not None and self.module.params['include_deps']:
             candidates = self._tree_nodes(candidates[0])
 
         todo = []
@@ -510,7 +512,7 @@ class FreeBSDPort:
             for level_node in level:
                 all_deps_built = True
                 for node in level_node.dependencies:
-                    if not node in todo:
+                    if node not in todo:
                         all_deps_built = False
                         break
                 if all_deps_built:
@@ -561,7 +563,7 @@ class FreeBSDPort:
         ]
         self._run_make(name, cmd, 'Could not deinstall the port: %s' % name)
 
-        if not name in self.result['deinstalled_ports']:
+        if name not in self.result['deinstalled_ports']:
             self.result['deinstalled_ports'].append(name)
 
         return True
@@ -581,7 +583,7 @@ class FreeBSDPort:
         for option in set_str.split(' '):
             if len(option) == 0:
                 continue
-            if not option in set_options:
+            if option not in set_options:
                 set_options.append(option)
         return set_options
 
@@ -600,7 +602,7 @@ class FreeBSDPort:
         for option in unset_str.split(' '):
             if len(option) == 0:
                 continue
-            if not option in unset_options:
+            if option not in unset_options:
                 unset_options.append(option)
         return unset_options
 
@@ -616,9 +618,8 @@ class FreeBSDPort:
             self.result['changed'] = True
             with open('/etc/make.conf', 'a') as fd:
                 fd.write(
-                    '\n.if exists(' + self.conf_file + ')\n'
-                    + '.include "' + self.conf_file + '"\n'
-                    + '.endif\n'
+                    '\n.if exists(' + self.conf_file + ')\n' +
+                    '.include "' + self.conf_file + '"\n' + '.endif\n'
                 )
 
         if self._get_ports_dir() != self.ports_dir:
@@ -629,7 +630,7 @@ class FreeBSDPort:
                 with open(self.conf_file, 'r') as fd:
                     for line in fd:
                         match = re.match('^\s*PORTSDIR\s*[?+-]?=.*$', line)
-                        if not match is None:
+                        if match is not None:
                             continue
                         output = output + line.rstrip() + '\n'
             except:
@@ -661,7 +662,7 @@ class FreeBSDPort:
         return True
 
     def _path_exists(self, path):
-        cmd = [ '/usr/bin/stat', path ]
+        cmd = ['/usr/bin/stat', path]
         (rc, out, err) = self.module.run_command(cmd)
         return (rc == 0)
 
@@ -670,12 +671,12 @@ class FreeBSDPort:
         if len(parts) != 2 or len(parts[0]) == 0 or len(parts[1]) == 0:
             return False
 
-        cmd = [ '/usr/bin/stat', self.ports_dir + '/' + name + '/Makefile' ]
+        cmd = ['/usr/bin/stat', self.ports_dir + '/' + name + '/Makefile']
         (rc, out, err) = self.module.run_command(cmd)
         return (rc == 0)
 
     def _port_installed(self, name):
-        cmd = [ '/bin/sh', '-c', '/usr/bin/yes | /usr/sbin/pkg info ' + name ]
+        cmd = ['/bin/sh', '-c', '/usr/bin/yes | /usr/sbin/pkg info ' + name]
         (rc, out, err) = self.module.run_command(cmd)
         return (rc == 0)
 
@@ -684,7 +685,7 @@ class FreeBSDPort:
             return False
         all_found = True
         for option in old_options:
-            if not option in new_options:
+            if option not in new_options:
                 all_found = False
                 break
         return all_found
@@ -699,7 +700,7 @@ class FreeBSDPort:
         if rc != 0:
             raise Exception('Could not get ports directory')
         return out.strip()
- 
+
     def _get_options_name(self, name):
         if name in self.port_options_names:
             return self.port_options_names[name]
@@ -816,7 +817,7 @@ class FreeBSDPort:
         return (out.strip() == '1')
 
     def _make_backup(self, name):
-        cmd = [ '/bin/mkdir', '-p', self.tmp_dir ]
+        cmd = ['/bin/mkdir', '-p', self.tmp_dir]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
             raise Exception('Could not create temporary directory')
@@ -843,7 +844,7 @@ class FreeBSDPort:
         if rc != 0:
             raise Exception('Could not create backup package of %s' % name)
 
-        cmd = [ '/usr/bin/stat', file_name ]
+        cmd = ['/usr/bin/stat', file_name]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
             raise Exception('Backup package for %s not found (%s)' % (name, file_name))
@@ -851,7 +852,7 @@ class FreeBSDPort:
         return file_name
 
     def _restore_backup(self, name, file_name, automatic):
-        cmd = [ '/usr/sbin/pkg', 'add' ]
+        cmd = ['/usr/sbin/pkg', 'add']
         if automatic:
             cmd.append('--automatic')
         cmd.append(file_name)
@@ -859,17 +860,17 @@ class FreeBSDPort:
         if rc != 0:
             raise Exception('Could not reinstall backup package of %s' % name)
 
-        if not name in self.result['installed_ports']:
+        if name not in self.result['installed_ports']:
             self.result['installed_ports'].append(name)
 
     def _remove_backup(self, name, file_name):
-        cmd = [ '/bin/rm', '-f', file_name ]
+        cmd = ['/bin/rm', '-f', file_name]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
             raise Exception('Could not remove backup package of %s' % name)
 
     def _build_tree(self, parent):
-        if not parent.dependencies is None:
+        if parent.dependencies is not None:
             return
 
         parent.dependencies = []
@@ -896,7 +897,7 @@ class FreeBSDPort:
             self._build_tree(node)
 
     def _tree_nodes(self, parent):
-        nodes = [ parent ]
+        nodes = [parent]
         if parent.dependencies is None:
             return nodes
 
@@ -913,11 +914,11 @@ class FreeBSDPort:
             '%s >> %s 2>&1' % (' '.join(cmd), log_file)
         ]
 
-        (rc, out, err) = self.module.run_command([ '/bin/mkdir', '-p', self.log_dir ])
+        (rc, out, err) = self.module.run_command(['/bin/mkdir', '-p', self.log_dir])
         if rc != 0:
             raise Exception('Could not create %s' % self.log_dir)
 
-        (rc, out, err) = self.module.run_command([ '/bin/sh', '-c', 'echo "+ %s" > %s' % (' '.join(cmd), log_file) ])
+        (rc, out, err) = self.module.run_command(['/bin/sh', '-c', 'echo "+ %s" > %s' % (' '.join(cmd), log_file)])
         if rc != 0:
             raise Exception('Could not create %s' % self.log_file)
 
@@ -937,65 +938,65 @@ class FreeBSDPort:
 
             raise Exception(error_msg)
 
-        (rc, out, err) = self.module.run_command([ '/bin/rm', '-f', log_file ])
+        (rc, out, err) = self.module.run_command(['/bin/rm', '-f', log_file])
         if rc != 0:
             raise Exception('Could not remove log file')
-        
- 
+
+
 def main():
     module = AnsibleModule(
-        argument_spec = dict(
-            state = dict(
+        argument_spec=dict(
+            state=dict(
                 type='str',
                 required=False,
-                choices=[ 'configured', 'present', 'latest', 'reinstalled', 'absent' ]
+                choices=['configured', 'present', 'latest', 'reinstalled', 'absent']
             ),
-            name = dict(
+            name=dict(
                 type='str',
                 required=False
             ),
-            options = dict(
+            options=dict(
                 type='str',
                 required=False
             ),
-            enable = dict(
+            enable=dict(
                 type='str',
                 required=False
             ),
-            disable = dict(
+            disable=dict(
                 type='str',
                 required=False
             ),
-            reset = dict(
+            reset=dict(
                 type='str',
                 required=False
             ),
-            refresh_tree = dict(
+            refresh_tree=dict(
                 type='bool',
                 required=False,
                 default=False
             ),
-            cron = dict(
+            cron=dict(
                 type='bool',
                 required=False,
                 default=False
             ),
-            include_deps = dict(
+            include_deps=dict(
                 type='bool',
                 required=False,
                 default=True
             ),
-            ignore_vulnerabilities = dict(
+            ignore_vulnerabilities=dict(
                 type='bool',
                 required=False,
                 default=False
             ),
-            ports_dir = dict(
+            ports_dir=dict(
                 type='str',
                 required=False,
                 default='/usr/ports'
             ),
-            conf_file = dict(
+            conf_file=dict(
                 type='str',
                 required=False,
                 default='/etc/make.ports.conf'
@@ -1032,7 +1033,7 @@ def main():
         else:
             state = None
 
-        if not name is None and not state is None:
+        if name is not None and state is not None:
             result['set_options'] = port.get_set_options(name)
             result['unset_options'] = port.get_unset_options(name)
 
@@ -1046,4 +1047,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
