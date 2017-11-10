@@ -167,8 +167,8 @@ EXAMPLES = '''
 RETURN = '''
 state:
     description: Requested state
-    returned: always
-    type: string or null
+    returned: when state provided
+    type: string
     sample: "present"
 success:
     description: Successful operation flag
@@ -178,27 +178,27 @@ success:
 deinstalled_ports:
     description: List of deinstalled ports during execution
     returned: always
-    type: list of strings
+    type: list
     sample: [ 'sysutils/ansible' ]
 installed_ports:
     description: List of (re)installed ports during execution
     returned: always
-    type: list of strings
+    type: list
     sample: [ 'sysutils/ansible' ]
 set_options:
     description: List of all enabled option names for the port
     returned: when port name and state are provided
-    type: list of strings
+    type: list
     sample: [ 'DOCS', 'EXAMPLES' ]
 unset_options:
     description: List of all disabled option names for the port
     returned: when port name and state are provided
-    type: list of strings
+    type: list
     sample: [ 'NETADDR' ]
 traceback:
     description: Stack trace of exception
     returned: failure
-    type: list of strings
+    type: list
 '''
 
 import sys
@@ -1007,7 +1007,6 @@ def main():
     state = module.params['state']
     result = {
         'changed': False,
-        'state': state,
         'success': True,
         'deinstalled_ports': [],
         'installed_ports': []
@@ -1032,6 +1031,9 @@ def main():
             port.deinstall(name)
         else:
             state = None
+
+        if state is not None:
+            result['state'] = state
 
         if name is not None and state is not None:
             result['set_options'] = port.get_set_options(name)
