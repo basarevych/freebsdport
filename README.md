@@ -47,7 +47,7 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
 ### Notes:
 * This module might install (automatically) or refresh (when requested)
   the port tree using **portsnap** utility.
-* With addition to **make**, **pkg** utility is used which might be
+* In addition to **make**, **pkg** utility is used which might be
   automatically installed if not present on target host.
 * Port options are stored in **/etc/make.ports.conf** file on target host.
   Instructions to include this file are automatically added to
@@ -82,7 +82,7 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
       - Space separated list of all the port's options you wish to define.
         Each item is in the form of OPTION_NAME=state, where state is either
         C(on) or C(off), e.g. options="FOO=on BAR=on BAZ=off".
-      - If this parameter is specified, options not listed will be reset to
+      - If this parameter is specified, options not listed will be reset to the
         port's default values. Use parameters C(enable), C(disable) or C(reset)
         instead if you only want to modify some specific options without
         resetting all the others.
