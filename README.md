@@ -18,7 +18,12 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
     name: sysutils/ansible
     options: DOCS=off EXAMPLES=on NETADDR=on
     state: configured
-    
+
+# Now you can just install with that options
+- freebsdport:
+    name: sysutils/ansible
+    state: latest
+
 # Enable DOCS and NETADDR, set EXAMPLES to default value and install Ansible
 - freebsdport:
     name: sysutils/ansible
@@ -40,6 +45,12 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
 - freebsdport:
     name: sysutils/ansible
     state: absent
+
+# Install PHP72 pecl-memcached
+- freebsdport:
+    name: databases/php-memcached
+    state: latest
+    variables: FLAVOR=php72
 ```
 
 # Description
@@ -67,7 +78,6 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
         when no C(state) provided.
     required: false
     default: null
-    
   state:
     description:
       - Whether to install (C(present) or C(latest)), force reinstall
@@ -76,13 +86,12 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
     choices: [ configured, present, latest, reinstalled, absent ]
     required: false
     default: null
-    
   options:
     description:
       - Space separated list of all the port's options you wish to define.
         Each item is in the form of OPTION_NAME=state, where state is either
         C(on) or C(off), e.g. options="FOO=on BAR=on BAZ=off".
-      - If this parameter is specified, options not listed will be reset to the
+      - If this parameter is specified, options not listed will be reset to
         port's default values. Use parameters C(enable), C(disable) or C(reset)
         instead if you only want to modify some specific options without
         resetting all the others.
@@ -91,7 +100,12 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
         Ignored when no C(name) provided.
     required: false
     default: null
-    
+  variables:
+    description:
+      - Space separated list of make variables to be passed to 'build'
+        and 'install' targets.
+    requied: false
+    default: null
   enable:
     description:
       - Space separated list of option names that will be enabled,
@@ -103,7 +117,6 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
         Ignored when no C(name) provided.
     required: false
     default: null
-    
   disable:
     description:
       - Space separated list of options names that will be disabled,
@@ -115,7 +128,6 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
         Ignored when no C(name) provided.
     required: false
     default: null
-    
   reset:
     description:
       - Space separated list of options names that will be reset to their
@@ -127,39 +139,33 @@ Look inside [freebsdport.py](freebsdport.py) for more information.
         Ignored when no C(name) provided.
     required: false
     default: null
-    
   refresh_tree:
     description:
       - Refresh ports tree using C(portsnap) before doing anything else.
     required: false
     default: false
-    
   cron:
     description:
       - Whether to use C(cron) or C(fetch) command of C(portsnap) when
         upgrading ports tree. Used with C(refresh_tree) is enabled.
     required: false
     default: false
-    
   include_deps:
     description:
       - When C(state) is C(latest) or C(reinstalled) and C(name) is given this
         option will also upgrade/reinstall dependencies of given port.
     required: false
     default: true
-    
   ignore_vulnerabilities:
     description:
       - Install port even if it has known vulnerabilities.
     required: false
     default: false
-    
   ports_dir:
     description:
       - Ports directory on target host
     required: false
     default: /usr/ports
-    
   conf_file:
     description:
       - Port options file on target host
