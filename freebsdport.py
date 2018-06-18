@@ -212,6 +212,11 @@ unset_options:
     returned: when port name and state are provided
     type: list
     sample: [ 'NETADDR' ]
+variables:
+    description: Make variables used
+    returned: when variables are used
+    type: string
+    sample: 'FLAVOR=php72'
 traceback:
     description: Stack trace of exception
     returned: failure
