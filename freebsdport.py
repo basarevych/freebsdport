@@ -278,7 +278,6 @@ class FreeBSDPort:
         self.log_dir = '/var/log/freebsdport'
         self.conf_file = self.module.params['conf_file']
         self.port_options_names = {}
-        self.pkg_ready = False
 
     def refresh_tree(self):
         if self._init_system():
@@ -423,6 +422,9 @@ class FreeBSDPort:
 
         self.result['changed'] = True
 
+        if self._get_locked(name):
+            self._do_unlock(name)
+
         use_pkg = (name != 'ports-mgmt/pkg'
             and self.module.params['prefer_pkg']
             and not self.is_modified(name)
@@ -479,7 +481,7 @@ class FreeBSDPort:
                 cmd.append('clean')
                 cmd.append('BATCH=yes')
                 if self.module.params['ignore_vulnerabilities']:
-                    cmd.append('DiISABLE_VULNERABILITIES=yes')
+                    cmd.append('DISABLE_VULNERABILITIES=yes')
                 for variable in variables_str.split(' '):
                     if len(variable) == 0:
                         continue
@@ -492,10 +494,16 @@ class FreeBSDPort:
                 self._remove_backup(name, backup)
                 backup = None
 
+            try:
+                if self.module.params['lock_modified'] and self.is_modified(name):
+                    self._do_lock(name)
+            except:
+                pass
+
             raise e
 
         if name == 'ports-mgmt/pkg':
-            self.pkg_ready = False
+            self._init_pkg()
 
         if self._get_automatic(name) != automatic:
             self._set_automatic(name, automatic)
@@ -523,6 +531,9 @@ class FreeBSDPort:
             with open(self.conf_file, 'w') as fd:
                 if len(output):
                     fd.write(output)
+
+        if self.module.params['lock_modified'] and self.is_modified(name):
+            self._do_lock(name)
 
         return True
 
@@ -613,6 +624,9 @@ class FreeBSDPort:
 
         self.result['changed'] = True
 
+        if self._get_locked(name):
+            self._do_unlock(name)
+
         cmd = [
             '/usr/bin/make',
             '-C', self.ports_dir + '/' + name,
@@ -643,7 +657,7 @@ class FreeBSDPort:
             self.result['deinstalled_ports'].append(name)
 
         if name == 'ports-mgmt/pkg':
-            self.pkg_ready = False
+            self._init_pkg()
 
         return True
 
@@ -691,6 +705,8 @@ class FreeBSDPort:
         return len(set_options) > 0 or len(unset_options) > 0
 
     def _init_system(self):
+        self._init_pkg()
+
         cmd = [
             '/usr/bin/grep',
             '-E',
@@ -746,16 +762,24 @@ class FreeBSDPort:
         return True
 
     def _init_pkg(self):
-        if self.pkg_ready:
-            return
-
         cmd = [
             '/bin/sh',
             '-c',
-            '/usr/bin/yes | /usr/bin/env ASSUME_ALWAYS_YES=yes /usr/sbin/pkg info pkg'
+            '/usr/sbin/pkg'
+            'info',
+            'ports-mgmt/pkg'
         ]
         (rc, out, err) = self.module.run_command(cmd)
-        self.pkg_ready = True
+        if rc != 0:
+            cmd = [
+                '/bin/sh',
+                '-c',
+                '/usr/bin/yes | /usr/bin/env ASSUME_ALWAYS_YES=yes /usr/sbin/pkg info ports-mgmt/pkg'
+            ]
+            (rc, out, err) = self.module.run_command(cmd)
+            if rc != 0:
+                raise Exception('Could not initialize pkg')
+            self.result['changed'] = True
  
     def _path_exists(self, path):
         cmd = ['/usr/bin/stat', path]
@@ -861,8 +885,6 @@ class FreeBSDPort:
         return (len(out.strip()) > 0)
 
     def _get_origin(self, package):
-        self._init_pkg()
-
         cmd = [
             '/usr/sbin/pkg',
             'query',
@@ -875,8 +897,6 @@ class FreeBSDPort:
         return out.strip()
 
     def _get_all_ports(self):
-        self._init_pkg()
-
         cmd = [
             '/bin/sh',
             '-c',
@@ -902,8 +922,6 @@ class FreeBSDPort:
         return ports
 
     def _get_outdated_ports(self):
-        self._init_pkg()
-
         cmd = [
             '/bin/sh',
             '-c',
@@ -929,7 +947,10 @@ class FreeBSDPort:
         return candidates
 
     def _set_automatic(self, name, automatic):
-        self._init_pkg()
+        locked = self._get_locked(name)
+
+        if locked:
+            self._do_unlock(name)
 
         if automatic:
             flag = '1'
@@ -941,15 +962,16 @@ class FreeBSDPort:
             'set',
             '--automatic',
             flag,
-            name
+            self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
             raise Exception('Could not set automatic status of %s' % name)
 
-    def _get_automatic(self, name):
-        self._init_pkg()
+        if locked:
+            self._do_lock(name)
 
+    def _get_automatic(self, name):
         cmd = [
             '/usr/sbin/pkg',
             'query',
@@ -961,17 +983,27 @@ class FreeBSDPort:
             raise Exception('Could not query automatic status of %s' % name)
         return (out.strip() == '1')
 
+    def _get_locked(self, name):
+        cmd = [
+            '/usr/sbin/pkg',
+            'query',
+            '%k',
+            name
+        ]
+        (rc, out, err) = self.module.run_command(cmd)
+        if rc != 0:
+            raise Exception('Could not query locked status of %s' % name)
+        return (out.strip() == '1')
+
     def _do_lock(self, name):
         if name == 'ports-mgmt/pkg':
             return
-
-        self._init_pkg()
 
         cmd = [
             '/usr/sbin/pkg',
             'lock',
             '-y',
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -983,13 +1015,11 @@ class FreeBSDPort:
         if name == 'ports-mgmt/pkg':
             return
 
-        self._init_pkg()
-
         cmd = [
             '/usr/sbin/pkg',
             'unlock',
             '-y',
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -1003,8 +1033,6 @@ class FreeBSDPort:
         if rc != 0:
             raise Exception('Could not create temporary directory')
 
-        self._init_pkg()
-
         cmd = [
             '/usr/sbin/pkg',
             'query',
@@ -1017,12 +1045,6 @@ class FreeBSDPort:
         package_name = out.strip()
         file_name = self.tmp_dir + '/' + package_name + '.txz'
 
-        try:
-            if self.module.params['lock_modified']:
-                self._do_unlock(name)
-        except:
-            pass
-
         cmd = [
             '/usr/sbin/pkg',
             'create',
@@ -1031,12 +1053,6 @@ class FreeBSDPort:
             name
         ]
         (rc, out, err) = self.module.run_command(cmd)
-
-        try:
-            if self.module.params['lock_modified'] and self.is_modified(name):
-                self._do_lock(name)
-        except:
-            pass
 
         if rc != 0:
             raise Exception('Could not create backup package of %s' % name)
@@ -1049,14 +1065,6 @@ class FreeBSDPort:
         return file_name
 
     def _restore_backup(self, name, file_name, automatic):
-        try:
-            if self.module.params['lock_modified']:
-                self._do_unlock(name)
-        except:
-            pass
-
-        self._init_pkg()
-
         cmd = [
             '/usr/sbin/pkg',
             'add'
@@ -1066,13 +1074,6 @@ class FreeBSDPort:
         cmd.append(file_name)
 
         (rc, out, err) = self.module.run_command(cmd)
-
-        try:
-            if self.module.params['lock_modified'] and self.is_modified(name):
-                self._do_lock(name)
-        except:
-            pass
-
         if rc != 0:
             raise Exception('Could not reinstall backup package of %s' % name)
 
@@ -1086,14 +1087,6 @@ class FreeBSDPort:
             raise Exception('Could not remove backup package of %s' % name)
 
     def _pkg_install(self, name, automatic):
-        try:
-            if self.module.params['lock_modified']:
-                self._do_unlock(name)
-        except:
-            pass
-
-        self._init_pkg()
-
         pkg_name = self._get_package_name(name)
         cmd = [
             '/usr/sbin/pkg',
@@ -1125,12 +1118,6 @@ class FreeBSDPort:
 
         (rc, out, err) = self.module.run_command(do)
 
-        try:
-            if self.module.params['lock_modified'] and self.is_modified(name):
-                self._do_lock(name)
-        except:
-            pass
-
         if rc != 0:
             raise Exception('Could not pkg install package of %s (%s)' % (name, pkg_name))
 
@@ -1148,8 +1135,6 @@ class FreeBSDPort:
         parent.dependencies = []
         if not self._port_installed(parent.name):
             return
-
-        self._init_pkg()
 
         cmd = [
             '/usr/sbin/pkg',
@@ -1197,11 +1182,6 @@ class FreeBSDPort:
         if rc != 0:
             raise Exception('Could not create %s' % self.log_file)
 
-        if self.module.params['lock_modified']:
-            self._do_unlock(name)
-
-        self._init_pkg()
-
         (rc, out, err) = self.module.run_command(do)
         if rc != 0:
             try:
@@ -1216,16 +1196,7 @@ class FreeBSDPort:
             except:
                 pass
 
-            try:
-                if self.module.params['lock_modified'] and self.is_modified(name):
-                    self._do_lock(name)
-            except:
-                pass
-
             raise Exception(error_msg)
-
-        if self.module.params['lock_modified'] and self.is_modified(name):
-            self._do_lock(name)
 
         (rc, out, err) = self.module.run_command(['/bin/rm', '-f', log_file])
         if rc != 0:
