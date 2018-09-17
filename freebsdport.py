@@ -984,6 +984,9 @@ class FreeBSDPort:
         return (out.strip() == '1')
 
     def _get_locked(self, name):
+        if not self._port_installed(name):
+            return False
+
         cmd = [
             '/usr/sbin/pkg',
             'query',
