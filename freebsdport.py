@@ -467,16 +467,14 @@ class FreeBSDPort:
             self._run_make(name, cmd, 'Could not build the port: %s' % name)
 
         try:
+            self.deinstall(name)
             if use_pkg:
-                self.deinstall(name)
                 self._pkg_install(name, automatic)
             else:
                 cmd = [
                     '/usr/bin/make',
                     '-C', self.ports_dir + '/' + name,
                 ]
-                if self._port_installed(name):
-                    cmd.append('deinstall')
                 cmd.append('install')
                 cmd.append('clean')
                 cmd.append('BATCH=yes')
@@ -801,7 +799,7 @@ class FreeBSDPort:
         cmd = [
             '/usr/sbin/pkg',
             'info',
-            name
+            self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
         return (rc == 0)
@@ -976,7 +974,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'query',
             '%a',
-            name
+            self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -991,7 +989,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'query',
             '%k',
-            name
+            self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -1006,7 +1004,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'lock',
             '-y',
-            name
+            self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -1022,7 +1020,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'unlock',
             '-y',
-            name
+            self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -1040,7 +1038,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'query',
             '%n-%v',
-            name
+            self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
