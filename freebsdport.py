@@ -411,11 +411,16 @@ class FreeBSDPort:
         if not self._port_exists(name):
             raise Exception('Port not found: %s' % name)
 
+        # ignoring version
         port_installed = self._port_installed(name)
+
+        # exact version installes
+        package_installed = self._package_installed(name)
+
         options_changed = self.configure(name)
         backup = None
 
-        if not reinstall and port_installed and not options_changed:
+        if not reinstall and package_installed and not options_changed:
             if automatic is not None and self._get_automatic(name) != automatic:
                 self._set_automatic(name, automatic)
             return False
@@ -799,6 +804,17 @@ class FreeBSDPort:
         cmd = [
             '/usr/sbin/pkg',
             'info',
+            name
+        ]
+        (rc, out, err) = self.module.run_command(cmd)
+        return (rc == 0)
+
+    def _package_installed(self, name):
+        self._init_pkg()
+
+        cmd = [
+            '/usr/sbin/pkg',
+            'info',
             self._get_package_name(name)
         ]
         (rc, out, err) = self.module.run_command(cmd)
@@ -960,7 +976,7 @@ class FreeBSDPort:
             'set',
             '--automatic',
             flag,
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -974,7 +990,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'query',
             '%a',
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -989,7 +1005,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'query',
             '%k',
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -1004,7 +1020,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'lock',
             '-y',
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -1020,7 +1036,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'unlock',
             '-y',
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
@@ -1038,7 +1054,7 @@ class FreeBSDPort:
             '/usr/sbin/pkg',
             'query',
             '%n-%v',
-            self._get_package_name(name)
+            name
         ]
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
