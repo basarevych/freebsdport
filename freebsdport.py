@@ -453,10 +453,6 @@ class FreeBSDPort:
         if rc != 0:
             raise Exception('Could not remove old config in %s' % name)
 
-        variables_str = self.module.params['variables']
-        if variables_str is None:
-            variables_str = ''
-
         if not use_pkg:
             cmd = [
                 '/usr/bin/make',
@@ -465,10 +461,7 @@ class FreeBSDPort:
             ]
             if self.module.params['ignore_vulnerabilities']:
                 cmd.append('DISABLE_VULNERABILITIES=yes')
-            for variable in variables_str.split(' '):
-                if len(variable) == 0:
-                    continue
-                cmd.append(variable)
+            cmd.extend(self._prepare_variables(name))
             self._run_make(name, cmd, 'Could not build the port: %s' % name)
 
         try:
@@ -485,10 +478,7 @@ class FreeBSDPort:
                 cmd.append('BATCH=yes')
                 if self.module.params['ignore_vulnerabilities']:
                     cmd.append('DISABLE_VULNERABILITIES=yes')
-                for variable in variables_str.split(' '):
-                    if len(variable) == 0:
-                        continue
-                    cmd.append(variable)
+                cmd.extend(self._prepare_variables(name))
                 self._run_make(name, cmd, 'Could not install port: %s' % name)
         except Exception as e:
             if backup is not None:
@@ -639,10 +629,6 @@ class FreeBSDPort:
         if rc != 0:
             raise Exception('Could not remove old config in %s' % name)
 
-        variables_str = self.module.params['variables']
-        if variables_str is None:
-            variables_str = ''
-
         cmd = [
             '/usr/bin/make',
             '-C', self.ports_dir + '/' + name,
@@ -650,10 +636,7 @@ class FreeBSDPort:
         ]
         if self.module.params['ignore_vulnerabilities']:
             cmd.append('DISABLE_VULNERABILITIES=yes')
-        for variable in variables_str.split(' '):
-            if len(variable) == 0:
-                continue
-            cmd.append(variable)
+        cmd.extend(self._prepare_variables(name))
         self._run_make(name, cmd, 'Could not deinstall the port: %s' % name)
 
         if name not in self.result['deinstalled_ports']:
@@ -830,6 +813,33 @@ class FreeBSDPort:
                 break
         return all_found
 
+    def _prepare_variables(self, name):
+        # this will silently drop unsupported flavors
+
+        variables_str = self.module.params['variables']
+        if variables_str is None:
+            variables_str = ''
+
+        vars = []
+        for variable in variables_str.split(' '):
+            if len(variable) == 0:
+                continue
+            parts = variable.split('=')
+            if parts[0] == 'FLAVOR':
+                cmd = [
+                    '/usr/bin/make',
+                    '-C', self.ports_dir + '/' + name,
+                    '-V', 'FLAVORS'
+                ]
+                (rc, out, err) = self.module.run_command(cmd)
+                if rc != 0:
+                    raise Exception('Could not get ports flavors')
+                if not parts[1] in out.strip():
+                    continue
+            vars.append(variable)
+
+        return vars
+ 
     def _get_ports_dir(self):
         cmd = [
             '/usr/bin/make',
@@ -842,10 +852,6 @@ class FreeBSDPort:
         return out.strip()
 
     def _get_package_name(self, name):
-        variables_str = self.module.params['variables']
-        if variables_str is None:
-            variables_str = ''
-
         cmd = [
             '/usr/bin/make',
             '-C', self.ports_dir + '/' + name,
@@ -853,10 +859,7 @@ class FreeBSDPort:
         ]
         if self.module.params['ignore_vulnerabilities']:
             cmd.append('DISABLE_VULNERABILITIES=yes')
-        for variable in variables_str.split(' '):
-            if len(variable) == 0:
-                continue
-            cmd.append(variable)
+        cmd.extend(self._prepare_variables(name))
         (rc, out, err) = self.module.run_command(cmd)
         if rc != 0:
             raise Exception('Could not get package name for %s' % name)
