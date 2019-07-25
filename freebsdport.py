@@ -814,8 +814,6 @@ class FreeBSDPort:
         return all_found
 
     def _prepare_variables(self, name):
-        # this will silently drop unsupported flavors
-
         variables_str = self.module.params['variables']
         if variables_str is None:
             variables_str = ''
@@ -834,7 +832,7 @@ class FreeBSDPort:
                 (rc, out, err) = self.module.run_command(cmd)
                 if rc != 0:
                     raise Exception('Could not get ports flavors')
-                if not parts[1] in out.strip():
+                if len(out.strip()) == 0:
                     continue
             vars.append(variable)
 
